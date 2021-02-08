@@ -46,8 +46,14 @@ std::vector<float> miliSecondsSegment;
 std::vector<int> secondsSegment;
 std::vector<float> segmentNames;
 
+std::vector<float> combinedIntensity;
+std::vector<float> miliSecondsIntensity;
+std::vector<int> secondsIntensity;
+std::vector<float> IntensityValues;
+
 bool Beats = true;
 bool Segments = false;
+bool intensity = false;
 enum Verbosity {
 	PluginIds,
 	PluginOutputIds,
@@ -90,7 +96,7 @@ printFeatures(int frame, int sr,
 			haveRt = true;
 			featureCount = n;
 		}
-	
+
 		if (useFrames) {
 
 			int displayFrame = frame;
@@ -117,36 +123,71 @@ printFeatures(int frame, int sr,
 
 			(out ? *out : cout) << rt.toString();
 			bool pad = false;
+
+			/////////////////////////////////////////////////////////////////////////
 			if (out && Beats == true)
 			{
 				seconds.push_back(rt.sec);
 				miliSeconds.push_back(rt.msec());
-				
-			}	
+
+			}
 			if (out && Segments == true)
 			{
 				secondsSegment.push_back(rt.sec);
 				miliSecondsSegment.push_back(rt.msec());
-				
+
 			}
-			
+			if (out && intensity == true)
+			{
+				secondsIntensity.push_back(rt.sec);
+				miliSecondsIntensity.push_back(rt.msec());
+			}
+
+			//////////////////////////////////////////////////////////////////////////////
 			if (f.hasDuration) {
 				rt = f.duration;
 				(out ? *out : cout) << "," << rt.toString();
-				
+
 			}
 
 			(out ? *out : cout) << ":";
 		}
-	
+	if (out && Segments == true)
+	{
 		for (unsigned int j = 0; j < f.values.size(); ++j) {
 			(out ? *out : cout) << " " << f.values[j];
+
+
+
 			segmentNames.push_back(f.values[j]);
 		}
 		(out ? *out : cout) << " " << f.label;
-	
+
 		(out ? *out : cout) << endl;
 	}
+	else if(out && intensity == true)
+	{
+		for (unsigned int j = 0; j < f.values.size(); ++j) {
+			(out ? *out : cout) << " " << f.values[j];
+
+
+
+			IntensityValues.push_back(f.values[j]);
+		}
+		(out ? *out : cout) << " " << f.label;
+
+		(out ? *out : cout) << endl;
+	}
+	else
+	{
+		for (unsigned int j = 0; j < f.values.size(); ++j) {
+			(out ? *out : cout) << " " << f.values[j];
+		}
+		(out ? *out : cout) << " " << f.label;
+
+		(out ? *out : cout) << endl;
+	}
+}
 }
 
 
@@ -306,11 +347,11 @@ int run(string myname, string soname, string id,
 			goto done;
 		}
 
-
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		for (int i = 0; i < parameters.size(); i++)			//MY OWN CODE 
 		{
 			if (parameters[i].identifier == "featureType");		// CHECKS IF THE PLUGIN HAS THE featureType permaeter and if it does sets it to the one i want
-			plugin->setParameter("featureType", 3.0f);
+			plugin->setParameter("featureType", 3);
 		}
 
 
@@ -452,10 +493,14 @@ int main()
 	 //cerr << PluginHostAdapter::getPluginPath().front();
 
 
-	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, "Senorita.wav", "out.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, "Sunny.wav", "out.txt", false);
 	Beats = false;
 	Segments = true;
-	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, "Senorita.wav", "Segments.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, "Sunny.wav", "Segments.txt", false);
+	
+	Segments = false;
+	intensity = true;
+	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, "Sunny.wav", "intensity.txt", false);
 	int size = miliSeconds.size();
 	for (int i = 0; i < size; i++)
 	{
@@ -475,16 +520,84 @@ int main()
 	}
 	std::reverse(combinedSegment.begin(), combinedSegment.end());
 
+	size = miliSecondsIntensity.size();
+
+	for (int i = 0; i <size; i++)
+	{
+		combinedIntensity.push_back((secondsIntensity.back() + (miliSecondsIntensity.back() / 1000)));
+		secondsIntensity.pop_back();
+		miliSecondsIntensity.pop_back();
+	}
+	std::reverse(combinedIntensity.begin(), combinedIntensity.end());
+
 
 	for (int i = 0; i < combinedSegment.size(); i++)
 	{
 		cout << combinedSegment.at(i) << endl;
 	}
 
+
+
+
+
+	/*
+	for (all segments in segments)
+		for (all intensity values in current segment)
+			total += intensityValue
+		next
+		segmentAveragesVector.push(total)
+		total = 0
+	next
+		*/
+	float previousSegment = 0;
+	float nextSegment = 0;
+	float total = 0;
+	int j = 0;
+
+	std::vector<float> segmentIntensityMean;
+
 	for (int i = 0; i < segmentNames.size(); i++)
 	{
-		cout << segmentNames.at(i) << endl;
+		previousSegment = combinedSegment.at(i);
+		
+		if ((i == (segmentNames.size()-1)))
+		{
+			nextSegment = combinedSegment.back();
+			nextSegment += 100000;
+		}
+		else
+		{
+			nextSegment = combinedSegment.at(i + 1);
+		}
+		int counter = 0;
+		for (j; j < IntensityValues.size(); j++)
+		{
+			if (j > 8599)
+			{
+				int test = 0;
+			}
+			if (combinedIntensity.at(j) < nextSegment)
+			{
+				total += IntensityValues.at(j);
+				counter++;
+			}
+			else
+			{
+				float mean = total / counter;
+				total = 0;
+				segmentIntensityMean.push_back(mean);
+				break;
+			}
+		}
 	}
+
+	for (int i = 0; i < segmentIntensityMean.size(); i++)
+	{
+		cout << segmentNames.at(i) << " with intensity value: " << segmentIntensityMean.at(i) << endl;
+	}
+
 	fire();
+	
+	
 }
 
