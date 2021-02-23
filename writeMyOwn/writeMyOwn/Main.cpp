@@ -12,6 +12,7 @@
 #include <cmath>
 #include <ctime>
 #include <chrono>
+#include <algorithm>
 using namespace std;
 using Vamp::Plugin;
 using Vamp::PluginHostAdapter;
@@ -19,6 +20,17 @@ using Vamp::RealTime;
 using Vamp::HostExt::PluginLoader;
 using Vamp::HostExt::PluginWrapper;
 using Vamp::HostExt::PluginInputDomainAdapter;
+
+float lastDuration;
+float songDuration;
+struct SegmentDetails
+{
+	bool repeats = false;
+	bool HighIntensity = false;
+	float AverageIntensity = 0;
+};
+typedef std::pair<int, SegmentDetails> int_Seg;
+
 
 #define HOST_VERSION "1"
 class Timer				//Timer class taken from this github repo.  https://gist.github.com/gongzhitaao/7062087
@@ -147,7 +159,7 @@ printFeatures(int frame, int sr,
 			if (f.hasDuration) {
 				rt = f.duration;
 				(out ? *out : cout) << "," << rt.toString();
-
+				lastDuration = rt.sec;
 			}
 
 			(out ? *out : cout) << ":";
@@ -156,9 +168,6 @@ printFeatures(int frame, int sr,
 	{
 		for (unsigned int j = 0; j < f.values.size(); ++j) {
 			(out ? *out : cout) << " " << f.values[j];
-
-
-
 			segmentNames.push_back(f.values[j]);
 		}
 		(out ? *out : cout) << " " << f.label;
@@ -169,16 +178,13 @@ printFeatures(int frame, int sr,
 	{
 		for (unsigned int j = 0; j < f.values.size(); ++j) {
 			(out ? *out : cout) << " " << f.values[j];
-
-
-
 			IntensityValues.push_back(f.values[j]);
 		}
 		(out ? *out : cout) << " " << f.label;
 
 		(out ? *out : cout) << endl;
 	}
-	else
+	else 
 	{
 		for (unsigned int j = 0; j < f.values.size(); ++j) {
 			(out ? *out : cout) << " " << f.values[j];
@@ -445,7 +451,7 @@ int run(string myname, string soname, string id,
 
 }
 
-
+std::map <int, SegmentDetails> segmentDetails;
 void fire()
 {
 
@@ -461,7 +467,7 @@ void fire()
 	Timer time;
 	time.reset();
 	
-
+	bool doOnce = true;
 		do {
 			
 			dt = (time.elapsed() - lastTime);
@@ -471,11 +477,25 @@ void fire()
 				cout << "Fire ";
 				counter++;
 			}
-
-			if (combinedSegment.at(segmentCount) >= lastSegmentTime&& combinedSegment.at(segmentCount) < ((totaltime)))
+			if (segmentCount >= combinedSegment.size())
 			{
+				if (doOnce == true)
+				{
+					cout << endl << segmentNames.back() << endl;
+					doOnce = false;
+				}
 				
-				cout << endl << segmentNames.at(segmentCount) << endl;
+			}
+			else if (combinedSegment.at(segmentCount) >= lastSegmentTime && combinedSegment.at(segmentCount) < ((totaltime)))
+			{
+				if (segmentDetails.at(segmentNames.at(segmentCount)).HighIntensity == true)
+				{
+					cout << endl << segmentNames.at(segmentCount) <<"   ------ PREDICTED CHORUS -------- "<< endl;
+				}
+				else
+				{
+					cout << endl << segmentNames.at(segmentCount) << endl;
+				}
 				segmentCount++;
 			}
 
@@ -488,19 +508,22 @@ void fire()
 
 }
 
+
+
+
 int main()
 { 
 	 //cerr << PluginHostAdapter::getPluginPath().front();
+	
 
-
-	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, "Sunny.wav", "out.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, "Blow Your Mind.wav", "out.txt", false);
 	Beats = false;
 	Segments = true;
-	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, "Sunny.wav", "Segments.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, "Blow Your Mind.wav", "Segments.txt", false);
 	
 	Segments = false;
 	intensity = true;
-	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, "Sunny.wav", "intensity.txt", false);
+	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, "Blow Your Mind.wav", "intensity.txt", false);
 	int size = miliSeconds.size();
 	for (int i = 0; i < size; i++)
 	{
@@ -538,7 +561,7 @@ int main()
 
 
 
-
+	songDuration = combinedSegment.back() + lastDuration;
 
 	/*
 	for (all segments in segments)
@@ -562,7 +585,7 @@ int main()
 		
 		if ((i == (segmentNames.size()-1)))
 		{
-			nextSegment = combinedSegment.back();
+			//nextSegment = combinedSegment.back();
 			nextSegment += 100000;
 		}
 		else
@@ -572,10 +595,6 @@ int main()
 		int counter = 0;
 		for (j; j < IntensityValues.size(); j++)
 		{
-			if (j > 8599)
-			{
-				int test = 0;
-			}
 			if (combinedIntensity.at(j) < nextSegment)
 			{
 				total += IntensityValues.at(j);
@@ -583,12 +602,12 @@ int main()
 			}
 			else
 			{
-				float mean = total / counter;
-				total = 0;
-				segmentIntensityMean.push_back(mean);
 				break;
 			}
 		}
+		float mean = total / counter;
+		total = 0;
+		segmentIntensityMean.push_back(mean);
 	}
 
 	for (int i = 0; i < segmentIntensityMean.size(); i++)
@@ -596,8 +615,105 @@ int main()
 		cout << segmentNames.at(i) << " with intensity value: " << segmentIntensityMean.at(i) << endl;
 	}
 
+	
+/*	SegmentDetails test;
+
+	test.HighIntensity = true;
+	test.Repeats = true;
+
+	segmentDetails.insert(str_Seg(segmentNames.at(0), test));*/
+
+	std::vector<float> segmentCalculations; // = segmentIntensityMean;
+	int workingSegment = 0;
+	int workingTotal = 0;
+	int counter = 0;
+	int max = 0;
+	for (int j = 0; j < segmentNames.size(); j++)
+	{
+		if (max <= segmentNames.at(j))
+		{
+			max = segmentNames.at(j);
+		}
+	}
+	for (int j = 1; j <= max; j++)
+	{
+		workingSegment = j;
+		for (int i = 0; i < segmentIntensityMean.size(); i++)
+		{
+			if (segmentNames.at(i) == workingSegment)
+			{
+				workingTotal += segmentIntensityMean.at(i);
+				counter++;
+				
+			}
+		}
+		SegmentDetails temp;
+		temp.AverageIntensity = workingTotal / counter;
+		if (counter > 1)
+		{
+			temp.repeats = true;
+		}
+		segmentDetails.insert(int_Seg(j, temp));
+		counter = 0;
+		workingTotal = 0;
+	}
+
+	std::vector<float> SortedValues;
+	for (int i = 1; i <= segmentDetails.size(); i++)
+	{
+		SortedValues.push_back(segmentDetails.at(i).AverageIntensity);
+	}
+
+	std::sort(SortedValues.begin(), SortedValues.end());
+	for (int j = 0; j < 2; j++)
+	{
+		for (int i = 1; i <= segmentDetails.size(); i++)
+		{
+			if (segmentDetails.at(i).AverageIntensity == SortedValues.back())
+			{
+				segmentDetails.at(i).HighIntensity = true;
+			
+			}
+		}
+		SortedValues.pop_back();
+	}
+
 	fire();
 	
 	
 }
 
+///////
+/*
+
+Chorus - Repeated, High Energy
+
+Verse - Repeated Low Energy.
+
+
+First, check sections for Repeats.
+
+	High Value Repeats Are Choruses/Drops/Post Chorus. 
+
+	Low are verses
+
+Second, 
+	If two High Energy Are next to each other then one is post chorus.
+
+Third,
+	If one before Chorus is lower than Chorus but higher than verse then its a build
+
+Extras are special sections/Verses/Intro/Outro
+
+/////////////////////////////////////////////////////
+
+
+Average Values between Same Segments.
+Sort Vector From highest to lowest.
+	This is now a vector that shows the intensity of each type of segment.
+
+Highest values are Choruses
+
+
+
+*/
