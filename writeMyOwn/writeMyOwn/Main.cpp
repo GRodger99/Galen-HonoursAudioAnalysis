@@ -1,7 +1,9 @@
 #include <vamp-hostsdk/PluginHostAdapter.h>
 #include <vamp-hostsdk/PluginInputDomainAdapter.h>
 #include <vamp-hostsdk/PluginLoader.h>
+#include <vamp-hostsdk/vamp-hostsdk.h>
 #include <iostream>
+
 #include <fstream>
 #include <set>
 #include <sndfile.h>
@@ -13,7 +15,12 @@
 #include <ctime>
 #include <chrono>
 #include <algorithm>
+
+#include <filesystem>
+#include <Windows.h>
+
 using namespace std;
+namespace fs = std::filesystem;
 using Vamp::Plugin;
 using Vamp::PluginHostAdapter;
 using Vamp::RealTime;
@@ -25,6 +32,7 @@ float lastDuration;
 float songDuration;
 struct SegmentDetails
 {
+	
 	bool repeats = false;
 	bool HighIntensity = false;
 	float AverageIntensity = 0;
@@ -207,11 +215,12 @@ int run(string myname, string soname, string id,
 
 	{
 		PluginLoader* loader = PluginLoader::getInstance();
-
+	
 		PluginLoader::PluginKey key = loader->composePluginKey(soname, id);
 
 		SNDFILE* sndfile;
 		SF_INFO sfinfo;
+		
 		memset(&sfinfo, 0, sizeof(SF_INFO));
 
 		sndfile = sf_open(wavname.c_str(), SFM_READ, &sfinfo);
@@ -231,7 +240,7 @@ int run(string myname, string soname, string id,
 				return 1;
 			}
 		}
-
+		
 		Plugin* plugin = loader->loadPlugin
 		(key, sfinfo.samplerate, PluginLoader::ADAPT_ALL_SAFE);
 		if (!plugin) {
@@ -461,7 +470,7 @@ void fire()
 	float lastTime =0;
 	float lastSegmentTime =0;
 
-
+	
 	float temptime=0;
 	float dt=0;
 	Timer time;
@@ -514,16 +523,46 @@ void fire()
 int main()
 { 
 	 //cerr << PluginHostAdapter::getPluginPath().front();
-	
+	auto var = fs::current_path().string();
+	system("set VAMP_PATH=. ;");
 
-	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, "Blow Your Mind.wav", "out.txt", false);
+	cout << Vamp::PluginHostAdapter::getPluginPath()[0] << endl;
+
+	string SongFileName;
+	std::string path("");
+	std::string ext(".wav");
+	for (auto& p : fs::recursive_directory_iterator(path))
+	{
+		if (p.path().extension() == ext)
+		{
+			//SongFileName = p.path().string();
+			SongFileName = fs::absolute(p).string();
+			break;
+		}
+	}
+	int seed;
+	//GetFullPathName(SongFileName, MAX_PATH, )
+	srand((unsigned)time(NULL));
+	seed = rand() % 9;
+	ofstream SettingsFile;
+	SettingsFile.open("SettingsFile.txt");
+	SettingsFile << SongFileName <<"\n";
+	SettingsFile << seed;
+
+
+	SettingsFile.close();
+
+
+
+	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, SongFileName, "out.txt", false);
 	Beats = false;
 	Segments = true;
-	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, "Blow Your Mind.wav", "Segments.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, SongFileName, "Segments.txt", false);
 	
 	Segments = false;
 	intensity = true;
-	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, "Blow Your Mind.wav", "intensity.txt", false);
+	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, SongFileName, "intensity.txt", false);//Subconscious Grazer_Data/StreamingAssets/
+
 	int size = miliSeconds.size();
 	for (int i = 0; i < size; i++)
 	{
