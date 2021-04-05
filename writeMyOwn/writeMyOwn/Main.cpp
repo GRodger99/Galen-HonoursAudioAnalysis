@@ -166,7 +166,7 @@ printFeatures(int frame, int sr,
 			//////////////////////////////////////////////////////////////////////////////
 			if (f.hasDuration) {
 				rt = f.duration;
-				(out ? *out : cout) << "," << rt.toString();
+				//(out ? *out : cout) << "," << rt.toString();
 				lastDuration = rt.sec;
 			}
 
@@ -178,9 +178,10 @@ printFeatures(int frame, int sr,
 			(out ? *out : cout) << " " << f.values[j];
 			segmentNames.push_back(f.values[j]);
 		}
-		(out ? *out : cout) << " " << f.label;
+		//(out ? *out : cout) << " " << f.label;
 
 		(out ? *out : cout) << endl;
+		
 	}
 	else if(out && intensity == true)
 	{
@@ -522,9 +523,9 @@ void fire()
 
 int main()
 { 
-	 //cerr << PluginHostAdapter::getPluginPath().front();
+
 	auto var = fs::current_path().string();
-	system("set VAMP_PATH=. ;");
+	_putenv("VAMP_PATH=./Plugins");
 
 	cout << Vamp::PluginHostAdapter::getPluginPath()[0] << endl;
 
@@ -540,28 +541,17 @@ int main()
 			break;
 		}
 	}
-	int seed;
-	//GetFullPathName(SongFileName, MAX_PATH, )
-	srand((unsigned)time(NULL));
-	seed = rand() % 9;
-	ofstream SettingsFile;
-	SettingsFile.open("SettingsFile.txt");
-	SettingsFile << SongFileName <<"\n";
-	SettingsFile << seed;
-
-
-	SettingsFile.close();
 
 
 
-	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, SongFileName, "out.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/out.txt", false);
 	Beats = false;
 	Segments = true;
-	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, SongFileName, "Segments.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/Segments.txt", false);
 	
 	Segments = false;
 	intensity = true;
-	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, SongFileName, "intensity.txt", false);//Subconscious Grazer_Data/StreamingAssets/
+	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/intensity.txt", false);//Subconscious Grazer_Data/StreamingAssets/
 
 	int size = miliSeconds.size();
 	for (int i = 0; i < size; i++)
@@ -717,7 +707,50 @@ int main()
 		SortedValues.pop_back();
 	}
 
-	fire();
+
+	vector<float> Outputted;
+	int outputCount=0;
+	int seed;
+	//GetFullPathName(SongFileName, MAX_PATH, )
+	srand((unsigned)time(NULL));
+	seed = rand() % 9;
+	ofstream SettingsFile;
+	SettingsFile.open("Subconscious Grazer_Data/StreamingAssets/SettingsFile.txt");
+	SettingsFile << SongFileName << "\n";
+	SettingsFile << seed <<endl;
+
+	for (int i = 0; i < segmentNames.size(); i++)
+	{
+		if (segmentDetails.at(segmentNames.at(i)).HighIntensity == true)
+		{
+			if (outputCount < 1 )
+			{
+				SettingsFile << segmentNames.at(i) << endl;
+				Outputted.push_back(segmentNames.at(i));
+				outputCount++;
+			}
+			else
+			{
+				if (Outputted.at(0) == segmentNames.at(i))
+				{
+					break;
+				}
+				else
+				{
+					SettingsFile << segmentNames.at(i) << endl;
+					Outputted.push_back(segmentNames.at(i));
+					outputCount++;
+				}
+			}
+		}
+	}
+
+
+
+	SettingsFile.close();
+
+
+	//fire();
 	
 	
 }
