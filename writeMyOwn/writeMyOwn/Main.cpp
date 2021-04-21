@@ -368,6 +368,9 @@ int run(string myname, string soname, string id,
 		{
 			if (parameters[i].identifier == "featureType");		// CHECKS IF THE PLUGIN HAS THE featureType permaeter and if it does sets it to the one i want
 			plugin->setParameter("featureType", 3);
+
+			if (parameters[i].identifier == "neighbourhoodLimit");		// CHECKS IF THE PLUGIN HAS THE featureType permaeter and if it does sets it to the one i want
+			plugin->setParameter("neighbourhoodLimit", 12);
 		}
 
 
@@ -715,7 +718,7 @@ int main()
 	srand((unsigned)time(NULL));
 	seed = rand() % 9;
 	ofstream SettingsFile;
-	SettingsFile.open("Subconscious Grazer_Data/StreamingAssets/SettingsFile.txt");
+	SettingsFile.open("Subconscious Grazer_Data/StreamingAssets/SettingsFile.txt");//Subconscious Grazer_Data/StreamingAssets/
 	SettingsFile << SongFileName << "\n";
 	SettingsFile << seed <<endl;
 
