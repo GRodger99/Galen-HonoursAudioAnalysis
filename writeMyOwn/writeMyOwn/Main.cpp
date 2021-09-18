@@ -30,34 +30,19 @@ using Vamp::HostExt::PluginInputDomainAdapter;
 
 float lastDuration;
 float songDuration;
-struct SegmentDetails
+struct SegmentDetails	//a nice way to store the details about each segment
 {
-	
 	bool repeats = false;
 	bool HighIntensity = false;
 	float AverageIntensity = 0;
 };
-typedef std::pair<int, SegmentDetails> int_Seg;
+typedef std::pair<int, SegmentDetails> int_Seg;	//give each segment type an identifier
 
 
 #define HOST_VERSION "1"
-class Timer				//Timer class taken from this github repo.  https://gist.github.com/gongzhitaao/7062087
-{
-public:
-	Timer() : beg_(clock_::now()) {}
-	void reset() { beg_ = clock_::now(); }
-	double elapsed() const {
-		return std::chrono::duration_cast<second_>
-			(clock_::now() - beg_).count();
-	}
 
-private:
-	typedef std::chrono::high_resolution_clock clock_;
-	typedef std::chrono::duration<double, std::ratio<1> > second_;
-	std::chrono::time_point<clock_> beg_;
-};
 
-std::vector<float> combined;
+std::vector<float> combined;	//create all the containers needed
 std::vector<float> miliSeconds;
 std::vector<int> seconds;
 
@@ -144,10 +129,9 @@ printFeatures(int frame, int sr,
 			(out ? *out : cout) << rt.toString();
 			bool pad = false;
 
-			/////////////////////////////////////////////////////////////////////////
-			if (out && Beats == true)
+			if (out && Beats == true)	//swap depending on what plugins are being run
 			{
-				seconds.push_back(rt.sec);
+				seconds.push_back(rt.sec);	//the values are stored seperately so i am needed to store them seperately and combine them later
 				miliSeconds.push_back(rt.msec());
 
 			}
@@ -163,10 +147,8 @@ printFeatures(int frame, int sr,
 				miliSecondsIntensity.push_back(rt.msec());
 			}
 
-			//////////////////////////////////////////////////////////////////////////////
 			if (f.hasDuration) {
 				rt = f.duration;
-				//(out ? *out : cout) << "," << rt.toString();
 				lastDuration = rt.sec;
 			}
 
@@ -178,8 +160,6 @@ printFeatures(int frame, int sr,
 			(out ? *out : cout) << " " << f.values[j];
 			segmentNames.push_back(f.values[j]);
 		}
-		//(out ? *out : cout) << " " << f.label;
-
 		(out ? *out : cout) << endl;
 		
 	}
@@ -363,13 +343,13 @@ int run(string myname, string soname, string id,
 			goto done;
 		}
 
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		for (int i = 0; i < parameters.size(); i++)			//MY OWN CODE 
+		//change the vamp parameters of the plugins being used.
+		for (int i = 0; i < parameters.size(); i++)	
 		{
-			if (parameters[i].identifier == "featureType");		// CHECKS IF THE PLUGIN HAS THE featureType permaeter and if it does sets it to the one i want
+			if (parameters[i].identifier == "featureType");		// checks if the plugin has featureType permaeter and if it does sets it to 3 which is to use Tibral Segments
 			plugin->setParameter("featureType", 3);
 
-			if (parameters[i].identifier == "neighbourhoodLimit");		// CHECKS IF THE PLUGIN HAS THE featureType permaeter and if it does sets it to the one i want
+			if (parameters[i].identifier == "neighbourhoodLimit");		//then check for the next parameter needed. this one controls minimum segment length
 			plugin->setParameter("neighbourhoodLimit", 12);
 		}
 
@@ -465,117 +445,54 @@ int run(string myname, string soname, string id,
 }
 
 std::map <int, SegmentDetails> segmentDetails;
-void fire()
-{
-
-	float totaltime = 0;
-	int counter = 0;
-	int segmentCount = 0;
-	float lastTime =0;
-	float lastSegmentTime =0;
-
-	
-	float temptime=0;
-	float dt=0;
-	Timer time;
-	time.reset();
-	
-	bool doOnce = true;
-		do {
-			
-			dt = (time.elapsed() - lastTime);
-		
-			if (combined.at(counter) > lastTime&& combined.at(counter) < ((totaltime)))
-			{
-				cout << "Fire ";
-				counter++;
-			}
-			if (segmentCount >= combinedSegment.size())
-			{
-				if (doOnce == true)
-				{
-					cout << endl << segmentNames.back() << endl;
-					doOnce = false;
-				}
-				
-			}
-			else if (combinedSegment.at(segmentCount) >= lastSegmentTime && combinedSegment.at(segmentCount) < ((totaltime)))
-			{
-				if (segmentDetails.at(segmentNames.at(segmentCount)).HighIntensity == true)
-				{
-					cout << endl << segmentNames.at(segmentCount) <<"   ------ PREDICTED CHORUS -------- "<< endl;
-				}
-				else
-				{
-					cout << endl << segmentNames.at(segmentCount) << endl;
-				}
-				segmentCount++;
-			}
-
-			lastSegmentTime = totaltime;
-			lastTime = (totaltime);
-			totaltime += dt;
-			
-		} while (totaltime < combined.back());
-		
-
-}
-
-
-
 
 int main()
 { 
-
-	auto var = fs::current_path().string();
-	_putenv("VAMP_PATH=./Plugins");
-
-	cout << Vamp::PluginHostAdapter::getPluginPath()[0] << endl;
-
+	
+	_putenv("VAMP_PATH=./Plugins");	//create an environment variable for vamp to know where the plugins are stored
 	string SongFileName;
 	std::string path("");
 	std::string ext(".wav");
-	for (auto& p : fs::recursive_directory_iterator(path))
+	for (auto& p : fs::recursive_directory_iterator(path))	//search through evertyhing in the current folder andcheck if it is a wav file
 	{
 		if (p.path().extension() == ext)
 		{
-			//SongFileName = p.path().string();
-			SongFileName = fs::absolute(p).string();
-			break;
+			SongFileName = fs::absolute(p).string();	//if it is the return the name of the file 
+			break;//stop after finding the first wav
 		}
 	}
 
 
 
-	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/out.txt", false);
-	Beats = false;
+	run("test", "qm-vamp-plugins.dll", "qm-barbeattracker", "Beats", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/out.txt", false);	//run the QM beat tracking plugin 
+	Beats = false;	//set the beats to false and set segments to true so that the segments are poroperly stored
 	Segments = true;
-	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/Segments.txt", false);
+	run("test", "qm-vamp-plugins.dll", "qm-segmenter", "segmentation", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/Segments.txt", false);	//run segments
 	
-	Segments = false;
+	Segments = false;	//setup for intensity
 	intensity = true;
-	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/intensity.txt", false);//Subconscious Grazer_Data/StreamingAssets/
+	run("BBCTest", "bbc-vamp-plugins.dll", "bbc-intensity", "Intensity", 0, SongFileName, "Subconscious Grazer_Data/StreamingAssets/intensity.txt", false);	//then finally run the intensity 
 
-	int size = miliSeconds.size();
-	for (int i = 0; i < size; i++)
+	int size = miliSeconds.size();	//get the total number of beats
+	for (int i = 0; i < size; i++) //for each beat
 	{
-		combined.push_back((seconds.back() + (miliSeconds.back() / 1000)));
+		combined.push_back((seconds.back() + (miliSeconds.back() / 1000)));	//store the values from the individual vectors and merge them into one
 		seconds.pop_back();
 		miliSeconds.pop_back();
 	}
-	std::reverse(combined.begin(), combined.end());	
+	std::reverse(combined.begin(), combined.end());		//the re-order it so that the first beat is values 0
 
-	size = miliSecondsSegment.size();
+	size = miliSecondsSegment.size(); //do the same thing but for the segments instead
 
 	for (int i = 0; i <size; i++)
 	{
-		combinedSegment.push_back((secondsSegment.back() + (miliSecondsSegment.back() / 1000)));
+		combinedSegment.push_back((secondsSegment.back() + (miliSecondsSegment.back() / 1000)));	//merge the segments
 		secondsSegment.pop_back();
 		miliSecondsSegment.pop_back();
 	}
 	std::reverse(combinedSegment.begin(), combinedSegment.end());
 
-	size = miliSecondsIntensity.size();
+	size = miliSecondsIntensity.size();	//then for the intensity
 
 	for (int i = 0; i <size; i++)
 	{
@@ -583,53 +500,33 @@ int main()
 		secondsIntensity.pop_back();
 		miliSecondsIntensity.pop_back();
 	}
-	std::reverse(combinedIntensity.begin(), combinedIntensity.end());
+	std::reverse(combinedIntensity.begin(), combinedIntensity.end());	//keep it consistant with the others
 
-
-	for (int i = 0; i < combinedSegment.size(); i++)
-	{
-		cout << combinedSegment.at(i) << endl;
-	}
-
-
-
-	songDuration = combinedSegment.back() + lastDuration;
-
-	/*
-	for (all segments in segments)
-		for (all intensity values in current segment)
-			total += intensityValue
-		next
-		segmentAveragesVector.push(total)
-		total = 0
-	next
-		*/
 	float previousSegment = 0;
 	float nextSegment = 0;
 	float total = 0;
 	int j = 0;
 
-	std::vector<float> segmentIntensityMean;
+	std::vector<float> segmentIntensityMean;	//create the storage for the average intensity value of all the segments
 
-	for (int i = 0; i < segmentNames.size(); i++)
+	for (int i = 0; i < segmentNames.size(); i++)	//loop through every segment
 	{
 		previousSegment = combinedSegment.at(i);
 		
-		if ((i == (segmentNames.size()-1)))
+		if ((i == (segmentNames.size()-1)))// if it is the last segment
 		{
-			//nextSegment = combinedSegment.back();
-			nextSegment += 100000;
+			nextSegment += 100000;	//make it some large value to make sure all the intensity values are used
 		}
 		else
 		{
-			nextSegment = combinedSegment.at(i + 1);
+			nextSegment = combinedSegment.at(i + 1);	//set the next segment to be i+1
 		}
 		int counter = 0;
-		for (j; j < IntensityValues.size(); j++)
+		for (j; j < IntensityValues.size(); j++)	//after setting up the next segments timer
 		{
-			if (combinedIntensity.at(j) < nextSegment)
+			if (combinedIntensity.at(j) < nextSegment)	//if the current intensity time is before the next segment
 			{
-				total += IntensityValues.at(j);
+				total += IntensityValues.at(j);	//then add the value to that segment's total
 				counter++;
 			}
 			else
@@ -637,110 +534,97 @@ int main()
 				break;
 			}
 		}
-		float mean = total / counter;
-		total = 0;
-		segmentIntensityMean.push_back(mean);
+		float mean = total / counter;	//calculate the mean
+		total = 0;	//the reset the total
+		segmentIntensityMean.push_back(mean);	//add this new mean to the vector of mean values that is in the same order as the segments
 	}
 
-	for (int i = 0; i < segmentIntensityMean.size(); i++)
-	{
-		cout << segmentNames.at(i) << " with intensity value: " << segmentIntensityMean.at(i) << endl;
-	}
-
-	
-/*	SegmentDetails test;
-
-	test.HighIntensity = true;
-	test.Repeats = true;
-
-	segmentDetails.insert(str_Seg(segmentNames.at(0), test));*/
-
-	std::vector<float> segmentCalculations; // = segmentIntensityMean;
+	std::vector<float> segmentCalculations; 
 	int workingSegment = 0;
 	int workingTotal = 0;
 	int counter = 0;
 	int max = 0;
-	for (int j = 0; j < segmentNames.size(); j++)
+	for (int j = 0; j < segmentNames.size(); j++)//go through every segment and find out the total number of different segments there are
 	{
 		if (max <= segmentNames.at(j))
 		{
 			max = segmentNames.at(j);
 		}
 	}
-	for (int j = 1; j <= max; j++)
+	for (int j = 1; j <= max; j++)	//go through every type of segment
 	{
 		workingSegment = j;
-		for (int i = 0; i < segmentIntensityMean.size(); i++)
+		for (int i = 0; i < segmentIntensityMean.size(); i++)	//get the average value for every type of this segment.
 		{
-			if (segmentNames.at(i) == workingSegment)
+			if (segmentNames.at(i) == workingSegment)	//loop through all the segments and see if there are multiple of this one
 			{
-				workingTotal += segmentIntensityMean.at(i);
+				workingTotal += segmentIntensityMean.at(i);	// if there are then add them
 				counter++;
 				
 			}
 		}
 		SegmentDetails temp;
-		temp.AverageIntensity = workingTotal / counter;
-		if (counter > 1)
+		temp.AverageIntensity = workingTotal / counter;	//get the average intensity for this type of segment
+
+		if (counter > 1)	//if it calculated the mean for this type of segment more than once
 		{
-			temp.repeats = true;
+			temp.repeats = true;	
 		}
-		segmentDetails.insert(int_Seg(j, temp));
+		segmentDetails.insert(int_Seg(j, temp));	//add it to the map using the segment number as the index
 		counter = 0;
 		workingTotal = 0;
 	}
-
+	//Calulating the Chorus using intensity
 	std::vector<float> SortedValues;
 	for (int i = 1; i <= segmentDetails.size(); i++)
 	{
 		SortedValues.push_back(segmentDetails.at(i).AverageIntensity);
 	}
 
-	std::sort(SortedValues.begin(), SortedValues.end());
-	for (int j = 0; j < 2; j++)
+	std::sort(SortedValues.begin(), SortedValues.end());	
+	for (int j = 0; j < 2; j++)	//loop through and take only 2 values
 	{
 		for (int i = 1; i <= segmentDetails.size(); i++)
 		{
-			if (segmentDetails.at(i).AverageIntensity == SortedValues.back())
+			if (segmentDetails.at(i).AverageIntensity == SortedValues.back())	//if the average intensity of the current segment is the same as the highest value
 			{
-				segmentDetails.at(i).HighIntensity = true;
+				segmentDetails.at(i).HighIntensity = true; //then set it to be a predicted chorus
 			
 			}
 		}
-		SortedValues.pop_back();
+		SortedValues.pop_back();	//remove the value from the back
 	}
 
-
+	//outputting for the "settingsFile" which has the specific values
 	vector<float> Outputted;
 	int outputCount=0;
-	int seed;
-	//GetFullPathName(SongFileName, MAX_PATH, )
+	int seed;	
 	srand((unsigned)time(NULL));
-	seed = rand() % 9;
+	seed = rand() % 9;	//create the seed in this program so that it is the same whenever you use the same data
 	ofstream SettingsFile;
-	SettingsFile.open("Subconscious Grazer_Data/StreamingAssets/SettingsFile.txt");//Subconscious Grazer_Data/StreamingAssets/
-	SettingsFile << SongFileName << "\n";
-	SettingsFile << seed <<endl;
+	SettingsFile.open("Subconscious Grazer_Data/StreamingAssets/SettingsFile.txt");
+	SettingsFile << SongFileName << "\n";	//add the song path to the file
+	SettingsFile << seed <<endl;	//also add the seed
 
-	for (int i = 0; i < segmentNames.size(); i++)
+	for (int i = 0; i < segmentNames.size(); i++)	
 	{
-		if (segmentDetails.at(segmentNames.at(i)).HighIntensity == true)
+		if (segmentDetails.at(segmentNames.at(i)).HighIntensity == true)	//if the first type of segment is a predicted chorus
 		{
-			if (outputCount < 1 )
+			if (outputCount < 1 )	//only do this for the first type to output
 			{
-				SettingsFile << segmentNames.at(i) << endl;
-				Outputted.push_back(segmentNames.at(i));
+				SettingsFile << segmentNames.at(i) << endl;	//output the name if that segment
+				Outputted.push_back(segmentNames.at(i));	//add it to a vector of the type fo segments that have been outputted
 				outputCount++;
 			}
 			else
 			{
-				if (Outputted.at(0) == segmentNames.at(i))
+				if (Outputted.at(0) == segmentNames.at(i))	//if the first value outputted is the same as the current one
 				{
-					break;
+					break;	//dont do anything
 				}
 				else
 				{
-					SettingsFile << segmentNames.at(i) << endl;
+					SettingsFile << segmentNames.at(i) << endl;	//output the second one 
 					Outputted.push_back(segmentNames.at(i));
 					outputCount++;
 				}
@@ -748,47 +632,5 @@ int main()
 		}
 	}
 
-
-
-	SettingsFile.close();
-
-
-	//fire();
-	
-	
+	SettingsFile.close();	
 }
-
-///////
-/*
-
-Chorus - Repeated, High Energy
-
-Verse - Repeated Low Energy.
-
-
-First, check sections for Repeats.
-
-	High Value Repeats Are Choruses/Drops/Post Chorus. 
-
-	Low are verses
-
-Second, 
-	If two High Energy Are next to each other then one is post chorus.
-
-Third,
-	If one before Chorus is lower than Chorus but higher than verse then its a build
-
-Extras are special sections/Verses/Intro/Outro
-
-/////////////////////////////////////////////////////
-
-
-Average Values between Same Segments.
-Sort Vector From highest to lowest.
-	This is now a vector that shows the intensity of each type of segment.
-
-Highest values are Choruses
-
-
-
-*/
